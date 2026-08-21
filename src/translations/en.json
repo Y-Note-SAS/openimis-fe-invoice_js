@@ -100,6 +100,17 @@
       "label": "Create new Payment",
       "mutationLabel": "Create Invoice Payment {invoicePaymentLabel} for {invoiceCode}"
     },
+    "createPaymentTitle": "Create Payment",
+    "createPaymentButton": "Create Payment",
+    "paymentInformation": "Payment Information",
+    "accountingInformation": "Accounting Information (Ledger)",
+    "paymentReference": "Payment Reference",
+    "paymentAmount": "Payment Amount",
+    "specifyPaymentOrigin": "Specify Payment Origin",
+    "paymentDestination": "Payment Destination",
+    "thirdPartyAccount": "Third-Party Account",
+    "accountCode": "Account Code",
+    "accountName": "Account Name",
     "update": {
       "label": "Update Payment",
       "mutationLabel":"Update Invoice Payment {invoicePaymentLabel} of {invoiceCode}"
