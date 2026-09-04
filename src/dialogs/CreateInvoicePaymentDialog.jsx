@@ -2,22 +2,32 @@ import React, { useState } from "react";
 import { injectIntl } from "react-intl";
 import { connect } from "react-redux";
 import { bindActionCreators } from "redux";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Fab, Grid, IconButton, Typography } from "@mui/material";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Fab,
+  Grid,
+  IconButton,
+  Typography,
+} from "@mui/material";
 import { styled } from "@mui/material/styles";
 import {
   FormattedMessage,
   GetIconComponent,
   NumberInput,
   PublishedComponent,
-  SelectInput,
   TextInput,
   formatMessage,
   formatMessageWithValues,
   withModulesManager,
 } from "@openimis/fe-core";
 import { createPaymentInvoiceWithDetail } from "../actions";
-import { EMPTY_PAYMENT_INVOICE } from "../constants";
+import { EMPTY_PAYMENT_INVOICE, PAYMENT_STATUS } from "../constants";
 import InvoicePaymentStatusPicker from "../pickers/InvoicePaymentStatusPicker";
+import PaymentOriginPicker from "../pickers/PaymentOriginPicker";
 import { defaultDialogStyles } from "../util/styles";
 
 const CloseIcon = GetIconComponent("Close");
@@ -44,39 +54,60 @@ const StyledSection = styled("div")(({ theme }) => ({
   },
 }));
 
-const PAYMENT_ORIGIN_OPTIONS = [
-  { value: "CASH", label: "Cash" },
-  { value: "CHEQUE", label: "Cheque" },
-  { value: "BANK_TRANSFER", label: "Bank Transfer" },
-  { value: "MOBILE_MONEY", label: "Mobile Money" },
-  { value: "OTHER", label: "Other" },
-];
+const todayIso = () => {
+  const now = new Date();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+};
 
 const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDetail, modulesManager }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [payment, setPayment] = useState({ invoiceId: invoice?.id, ...EMPTY_PAYMENT_INVOICE });
+  const [payment, setPayment] = useState(() => newInvoicePayment(invoice));
   const [paymentOrigin, setPaymentOrigin] = useState(null);
   const [otherOrigin, setOtherOrigin] = useState("");
   const [selectedJournal, setSelectedJournal] = useState(null);
   const [selectedParty, setSelectedParty] = useState(null);
 
   const isLedgerEnabled = !!modulesManager.getRef("ledger.LedgerJournalPicker");
+  const destinationJournalType = modulesManager.getConf(
+    "fe-invoice",
+    "invoicePayment.paymentDestinationJournalType",
+    "TRESORERIE",
+  );
 
-  const handleOpen = () => setIsOpen(true);
-
-  const handleClose = () => {
-    setIsOpen(false);
-    setPayment({ invoiceId: invoice?.id, ...EMPTY_PAYMENT_INVOICE });
+  const resetForm = () => {
+    setPayment(newInvoicePayment(invoice));
     setPaymentOrigin(null);
     setOtherOrigin("");
     setSelectedJournal(null);
     setSelectedParty(null);
   };
 
+  const handleOpen = () => {
+    resetForm();
+    setIsOpen(true);
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    resetForm();
+  };
+
   const onAttributeChange = (attribute) => (value) => setPayment((prev) => ({ ...prev, [attribute]: value }));
 
   const handleSave = () => {
-    const invoicePayment = { ...payment, paymentOrigin: paymentOrigin === "OTHER" ? otherOrigin : paymentOrigin };
+    const invoicePayment = {
+      ...payment,
+      paymentOrigin: paymentOrigin === "OTHER" ? otherOrigin : paymentOrigin,
+    };
+    if (isLedgerEnabled) {
+      // Contract with the backend ledger integration (#37884): the destination
+      // journal is sent so the ledger records a LedgerEntryMeta on that journal
+      // for this payment, and the third-party analytic tags that entry.
+      invoicePayment.paymentDestination = selectedJournal?.code || null;
+      invoicePayment.party = selectedParty?.analyticValueId || null;
+    }
     createPaymentInvoiceWithDetail(
       invoicePayment,
       invoicePayment.invoiceId,
@@ -89,7 +120,11 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
     handleClose();
   };
 
-  const canSave = !!payment.codeExt && !!payment.amountReceived && !!payment.datePayment && !!payment.status &&
+  const canSave =
+    !!payment.codeExt &&
+    !!payment.amountReceived &&
+    !!payment.datePayment &&
+    !!payment.status &&
     (paymentOrigin === "OTHER" ? !!otherOrigin : !!paymentOrigin);
 
   const renderSectionHeader = (labelId) => (
@@ -161,10 +196,8 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
                     />
                   </Grid>
                   <Grid size={6}>
-                    <SelectInput
-                      module="invoice"
+                    <PaymentOriginPicker
                       label="invoicePayment.paymentOrigin"
-                      options={PAYMENT_ORIGIN_OPTIONS}
                       value={paymentOrigin}
                       onChange={setPaymentOrigin}
                     />
@@ -192,15 +225,13 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
                     <Grid size={6}>
                       <PublishedComponent
                         pubRef="ledger.LedgerJournalPicker"
+                        type={destinationJournalType}
                         label={formatMessage(intl, "invoice", "invoicePayment.paymentDestination")}
                         value={selectedJournal}
                         onChange={setSelectedJournal}
                       />
                     </Grid>
                     <Grid size={6}>
-                      <Typography variant="body2" gutterBottom>
-                        {formatMessage(intl, "invoice", "invoicePayment.thirdPartyAccount")}
-                      </Typography>
                       <PublishedComponent
                         pubRef="ledger.PartyPicker"
                         value={selectedParty}
@@ -241,6 +272,14 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
     </StyledCreateInvoicePaymentDialog>
   );
 };
+
+const newInvoicePayment = (invoice) => ({
+  invoiceId: invoice?.id,
+  ...EMPTY_PAYMENT_INVOICE,
+  status: PAYMENT_STATUS.ACCEPTED,
+  amountReceived: invoice?.amountNet,
+  datePayment: todayIso(),
+});
 
 const mapDispatchToProps = (dispatch) => bindActionCreators({ createPaymentInvoiceWithDetail }, dispatch);
 

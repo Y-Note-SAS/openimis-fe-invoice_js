@@ -128,19 +128,16 @@ const BILL_PAYMENT_FULL_PROJECTION = [
   "paymentOrigin",
 ];
 
-// new payment design
+// new payment design: only the fields actually used by the invoice payments
+// panel are projected; `paymentDestination` is the ledger journal recorded for
+// the payment (backend contract #37884, reverse join on LedgerEntryMeta).
 const PAYMENT_INVOICE_FULL_PROJECTION = [
   "id",
-  "reconciliationStatus",
   "codeExt",
-  "codeTp",
-  "codeReceipt",
-  "label",
-  "fees",
   "amountReceived",
   "datePayment",
   "paymentOrigin",
-  "payerRef"
+  "paymentDestination",
 ];
 
 const DETAIL_PAYMENT_INVOICE_FULL_PROJECTION = [
@@ -216,6 +213,8 @@ const formatPaymentInvoiceGQL = (payment, subjectId, subjectType) =>
     ${!!payment.datePayment ? `datePayment: "${payment.datePayment}"` : ""}
     ${!!payment.paymentOrigin ? `paymentOrigin: "${payment.paymentOrigin}"` : ""}
     ${!!payment.payerRef ? `payerRef: "${payment.payerRef}"` : ""}
+    ${!!payment.paymentDestination ? `paymentDestination: "${payment.paymentDestination}"` : ""}
+    ${!!payment.party ? `party: "${payment.party}"` : ""}
   `;
 
 export function fetchInvoices(params) {
