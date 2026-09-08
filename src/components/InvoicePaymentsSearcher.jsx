@@ -96,7 +96,7 @@ const InvoicePaymentsSearcher = ({
 
   const onDelete = (paymentInvoice) => setPaymentInvoiceToDelete(paymentInvoice);
 
-  const fetch = (params) => fetchPaymentInvoices(params);
+  const fetch = (params) => fetchPaymentInvoices(params, isLedgerEnabled);
 
   const refetch = () => fetch(queryParams);
 
