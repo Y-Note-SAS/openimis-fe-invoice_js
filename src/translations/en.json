@@ -47,6 +47,25 @@
     "note": "Note",
     "terms": "Terms",
     "paymentReference": "Payment Reference",
+    "familyInvoicesPayments": {
+      "title": "{count} Invoices / Payments",
+      "coveredPeriod": "Covered Period",
+      "invoiceNumber": "Invoice Number",
+      "amountDue": "Amount Due",
+      "totalInvoicePayments": "Total Invoice Payments",
+      "invoiceBalance": "Invoice Balance",
+      "lastPayment": "Last Payment",
+      "totalInvoiceAmount": "Total Invoices",
+      "totalPaidAmount": "Total Paid",
+      "globalBalance": "Global Balance",
+      "invoicePaymentsSectionTitle": "Invoice {invoiceNumber} Payments ({count})",
+      "invoicePaymentDate": "Payment Date",
+      "invoicePaymentAmount": "Payment Amount",
+      "invoicePaymentReference": "Payment Reference",
+      "invoicePaymentOrigin": "Payment Origin",
+      "invoicePaymentCodeReceipt": "Receipt Number",
+      "invoicePaymentPayerRef": "Payer Reference"
+    },
     "delete": {
       "confirm": {
         "title": "Delete {code}?",
