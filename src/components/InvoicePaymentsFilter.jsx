@@ -5,120 +5,57 @@ import _debounce from "lodash/debounce";
 import { Grid } from "@mui/material";
 import { styled } from "@mui/material/styles";
 
-import { TextInput, NumberInput, PublishedComponent, formatMessage, GRID_RESPONSIVE_STANDARD } from "@openimis/fe-core";
-import { CONTAINS_LOOKUP, DEFUALT_DEBOUNCE_TIME, STARTS_WITH_LOOKUP } from "../constants";
+import {
+  TextInput,
+  NumberInput,
+  PublishedComponent,
+  formatMessage,
+  withModulesManager,
+  GRID_RESPONSIVE_STANDARD,
+} from "@openimis/fe-core";
+import { CONTAINS_LOOKUP, DEFUALT_DEBOUNCE_TIME } from "../constants";
 import { defaultFilterStyles } from "../util/styles";
-import PaymentInvoiceStatusPicker from "../pickers/PaymentInvoiceStatusPicker";
+import PaymentOriginPicker from "../pickers/PaymentOriginPicker";
 
-const StyledInvoicePaymentsFilter = styled('div')(({ theme }) => ({
+const StyledInvoicePaymentsFilter = styled("div")(({ theme }) => ({
   ...defaultFilterStyles(theme),
 }));
 
-const InvoicePaymentsFilter = ({ intl, filters, onChangeFilters }) => {
+const InvoicePaymentsFilter = ({ intl, modulesManager, filters, onChangeFilters }) => {
   const debouncedOnChangeFilters = _debounce(onChangeFilters, DEFUALT_DEBOUNCE_TIME);
+
+  const isLedgerEnabled = !!modulesManager.getRef("ledger.LedgerJournalPicker");
+  const destinationJournalType = modulesManager.getConf(
+    "fe-invoice",
+    "invoicePayment.paymentDestinationJournalType",
+    "TRESORERIE",
+  );
 
   const filterValue = (filterName) => filters?.[filterName]?.value;
 
-  const filterTextFieldValue = (filterName) => (filters[filterName] ? filters[filterName].value : "");
+  const filterTextFieldValue = (filterName) => (filters?.[filterName] ? filters[filterName].value : "");
 
-  const onChangeFilter = (filterName) => (value) => {
+  const setFilter = (filterName, value, filter) =>
+    onChangeFilters([{ id: filterName, value: !!value ? value : null, filter: filter || null }]);
+
+  const onChangeStringFilter = (filterName, lookup) => (value) =>
     debouncedOnChangeFilters([
       {
         id: filterName,
-        value: !!value ? value : null,
-        filter: `${filterName}: ${value}`,
+        value,
+        filter: `${filterName}_${lookup}: "${value}"`,
       },
     ]);
-  };
-
-  const onChangeStringFilter =
-    (filterName, lookup = null) =>
-    (value) => {
-      lookup
-        ? debouncedOnChangeFilters([
-            {
-              id: filterName,
-              value,
-              filter: `${filterName}_${lookup}: "${value}"`,
-            },
-          ])
-        : onChangeFilters([
-            {
-              id: filterName,
-              value,
-              filter: `${filterName}: "${value}"`,
-            },
-          ]);
-    };
 
   return (
     <StyledInvoicePaymentsFilter>
       <Grid container className="form">
         <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
-          <PaymentInvoiceStatusPicker
-            label="paymentInvoice.reconciliationStatus.label"
-            withNull
-            nullLabel={formatMessage(intl, "invoice", "any")}
-            value={filterValue("reconciliationStatus")}
-            onChange={(value) =>
-              onChangeFilters([
-                {
-                  id: "reconciliationStatus",
-                  value: value,
-                  filter: `reconciliationStatus: A_${value}`,
-                },
-              ])
-            }
-          />
-        </Grid>
-        <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
           <TextInput
             module="invoice"
-            label="paymentInvoice.codeExt"
+            label="paymentInvoice.paymentReference"
             value={filterTextFieldValue("codeExt")}
             onChange={onChangeStringFilter("codeExt", CONTAINS_LOOKUP)}
-          />
-        </Grid>
-        <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
-          <TextInput
-            module="invoice"
-            label="paymentInvoice.label"
-            value={filterTextFieldValue("label")}
-            onChange={onChangeStringFilter("label", STARTS_WITH_LOOKUP)}
-          />
-        </Grid>
-        <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
-          <TextInput
-            module="invoice"
-            label="paymentInvoice.codeTp"
-            value={filterTextFieldValue("codeTp")}
-            onChange={onChangeStringFilter("codeTp", CONTAINS_LOOKUP)}
-          />
-        </Grid>
-        <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
-          <TextInput
-            module="invoice"
-            label="paymentInvoice.codeReceipt"
-            value={filterTextFieldValue("codeReceipt")}
-            onChange={onChangeStringFilter("codeReceipt", CONTAINS_LOOKUP)}
-          />
-        </Grid>
-        <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
-          <NumberInput
-            module="invoice"
-            label="paymentInvoice.fees"
-            min={0}
-            value={filterValue("fees")}
-            onChange={onChangeFilter("fees")}
-          />
-        </Grid>
-        <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
-          <NumberInput
-            module="invoice"
-            label="paymentInvoice.amountReceived"
-            min={0}
-            value={filterValue("amountReceived")}
-            onChange={onChangeFilter("amountReceived")}
           />
         </Grid>
         <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
@@ -127,29 +64,45 @@ const InvoicePaymentsFilter = ({ intl, filters, onChangeFilters }) => {
             module="invoice"
             label="paymentInvoice.datePayment"
             value={filterValue("datePayment")}
-            onChange={onChangeStringFilter("datePayment")}
+            onChange={(value) => setFilter("datePayment", value, value ? `datePayment: "${value}"` : null)}
           />
         </Grid>
         <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
-          <TextInput
+          <NumberInput
             module="invoice"
+            label="paymentInvoice.paymentAmount"
+            min={0}
+            value={filterValue("amountReceived")}
+            onChange={(value) => setFilter("amountReceived", value, value != null ? `amountReceived: ${value}` : null)}
+          />
+        </Grid>
+        <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
+          <PaymentOriginPicker
             label="paymentInvoice.paymentOrigin"
-            value={filterTextFieldValue("paymentOrigin")}
-            onChange={onChangeStringFilter("paymentOrigin", CONTAINS_LOOKUP)}
+            withNull
+            nullLabel={formatMessage(intl, "invoice", "any")}
+            value={filterValue("paymentOrigin")}
+            onChange={(value) => setFilter("paymentOrigin", value, value ? `paymentOrigin_Iexact: "${value}"` : null)}
           />
         </Grid>
-        <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
-          <TextInput
-            module="invoice"
-            label="paymentInvoice.payerRef"
-            value={filterTextFieldValue("payerRef")}
-            onChange={onChangeStringFilter("payerRef", CONTAINS_LOOKUP)}
-          />
-        </Grid>
+        {isLedgerEnabled && (
+          <Grid size={GRID_RESPONSIVE_STANDARD} className="item">
+            <PublishedComponent
+              pubRef="ledger.LedgerJournalPicker"
+              type={destinationJournalType}
+              label={formatMessage(intl, "invoice", "paymentInvoice.paymentDestination")}
+              value={filterValue("paymentDestination")}
+              onChange={(journal) => {
+                const code = journal?.code || null;
+                setFilter("paymentDestination", code, code ? `paymentDestination: "${code}"` : null);
+              }}
+            />
+          </Grid>
+        )}
       </Grid>
     </StyledInvoicePaymentsFilter>
   );
 };
 
 export { StyledInvoicePaymentsFilter };
-export default injectIntl(InvoicePaymentsFilter);
+export default withModulesManager(injectIntl(InvoicePaymentsFilter));

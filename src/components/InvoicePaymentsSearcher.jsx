@@ -7,22 +7,18 @@ import {
   formatDateFromISO,
   withModulesManager,
   coreConfirm,
+  GetIconComponent,
 } from "@openimis/fe-core";
 import { bindActionCreators } from "redux";
 import { connect } from "react-redux";
 import { fetchPaymentInvoices, deletePaymentInvoice } from "../actions";
-import {
-  DEFAULT_PAGE_SIZE,
-  EMPTY_STRING,
-  RIGHT_INVOICE_PAYMENT_DELETE,
-  ROWS_PER_PAGE_OPTIONS,
-} from "../constants";
+import { DEFAULT_PAGE_SIZE, EMPTY_STRING, RIGHT_INVOICE_PAYMENT_DELETE, ROWS_PER_PAGE_OPTIONS } from "../constants";
 import InvoicePaymentsFilter from "./InvoicePaymentsFilter";
-import PaymentInvoiceStatusPicker from "../pickers/PaymentInvoiceStatusPicker"
+import { getPaymentOriginLabel } from "../pickers/PaymentOriginPicker";
 import { IconButton, Tooltip } from "@mui/material";
-import { GetIconComponent } from "@openimis/fe-core";
-const DeleteIcon = GetIconComponent("Delete")
 import { ACTION_TYPE } from "../reducer";
+
+const DeleteIcon = GetIconComponent("Delete");
 
 const InvoicePaymentsSearcher = ({
   intl,
@@ -48,6 +44,8 @@ const InvoicePaymentsSearcher = ({
   const [deletedPaymentInvoiceUuids, setDeletedPaymentInvoiceUuids] = useState([]);
   const prevSubmittingMutationRef = useRef();
 
+  const isLedgerEnabled = !!modulesManager.getRef("ledger.LedgerJournalPicker");
+
   useEffect(() => {
     if (paymentInvoiceToDelete) {
       openDeletePaymentInvoiceConfirmDialog();
@@ -65,7 +63,9 @@ const InvoicePaymentsSearcher = ({
     if (
       prevSubmittingMutationRef.current &&
       !submittingMutation &&
-      [ACTION_TYPE.CREATE_PAYMENT_INVOICE_WITH_DETAIL, ACTION_TYPE.UPDATE_INVOICE_PAYMENT].includes(mutation?.actionType)
+      [ACTION_TYPE.CREATE_PAYMENT_INVOICE_WITH_DETAIL, ACTION_TYPE.UPDATE_INVOICE_PAYMENT].includes(
+        mutation?.actionType,
+      )
     ) {
       refetch();
     }
@@ -79,7 +79,7 @@ const InvoicePaymentsSearcher = ({
     deletePaymentInvoice(
       paymentInvoiceToDelete,
       formatMessageWithValues(intl, "invoice", "paymentInvoice.delete.mutationLabel", {
-        paymentInvoiceLabel: paymentInvoiceToDelete?.label,
+        paymentInvoiceLabel: paymentInvoiceToDelete?.codeExt || EMPTY_STRING,
         code: invoice?.code,
       }),
     );
@@ -88,7 +88,7 @@ const InvoicePaymentsSearcher = ({
     setConfirmedAction(() => deletePaymentInvoiceCallback);
     coreConfirm(
       formatMessageWithValues(intl, "invoice", "paymentInvoice.delete.confirm.title", {
-        paymentInvoiceLabel: paymentInvoiceToDelete?.label,
+        paymentInvoiceLabel: paymentInvoiceToDelete?.codeExt || EMPTY_STRING,
       }),
       formatMessage(intl, "invoice", "paymentInvoice.delete.confirm.message"),
     );
@@ -96,7 +96,7 @@ const InvoicePaymentsSearcher = ({
 
   const onDelete = (paymentInvoice) => setPaymentInvoiceToDelete(paymentInvoice);
 
-  const fetch = (params) => fetchPaymentInvoices(params);
+  const fetch = (params) => fetchPaymentInvoices(params, isLedgerEnabled);
 
   const refetch = () => fetch(queryParams);
 
@@ -118,35 +118,33 @@ const InvoicePaymentsSearcher = ({
     return queryParams;
   };
 
-  const headers = () => [
-    "paymentInvoice.reconciliationStatus.label",
-    "paymentInvoice.codeExt",
-    "paymentInvoice.label",
-    "paymentInvoice.codeTp",
-    "paymentInvoice.codeReceipt",
-    "paymentInvoice.fees",
-    "paymentInvoice.amountReceived",
-    "paymentInvoice.datePayment",
-    "paymentInvoice.paymentOrigin",
-    "paymentInvoice.payerRef",
-  ];
+  const headers = () => {
+    const result = [
+      "paymentInvoice.paymentReference",
+      "paymentInvoice.datePayment",
+      "paymentInvoice.paymentAmount",
+      "paymentInvoice.paymentOrigin",
+    ];
+    if (isLedgerEnabled) {
+      result.push("paymentInvoice.paymentDestination");
+    }
+    return result;
+  };
 
   const itemFormatters = () => {
     const formatters = [
-      (paymentInvoice) => <PaymentInvoiceStatusPicker value={paymentInvoice?.reconciliationStatus} readOnly />,
       (paymentInvoice) => paymentInvoice.codeExt,
-      (paymentInvoice) => paymentInvoice.label,
-      (paymentInvoice) => paymentInvoice.codeTp,
-      (paymentInvoice) => paymentInvoice.codeReceipt,
-      (paymentInvoice) => paymentInvoice.fees,
-      (paymentInvoice) => paymentInvoice.amountReceived,
       (paymentInvoice) =>
         !!paymentInvoice.datePayment
           ? formatDateFromISO(modulesManager, intl, paymentInvoice.datePayment)
           : EMPTY_STRING,
-      (paymentInvoice) => paymentInvoice.paymentOrigin,
-      (paymentInvoice) => paymentInvoice.payerRef,
+      (paymentInvoice) => paymentInvoice.amountReceived,
+      (paymentInvoice) => getPaymentOriginLabel(intl, paymentInvoice?.paymentOrigin),
     ];
+
+    if (isLedgerEnabled) {
+      formatters.push((paymentInvoice) => paymentInvoice?.paymentDestination || EMPTY_STRING);
+    }
 
     if (rights.includes(RIGHT_INVOICE_PAYMENT_DELETE)) {
       formatters.push((paymentInvoice) => (
@@ -163,18 +161,18 @@ const InvoicePaymentsSearcher = ({
     return formatters;
   };
 
-  const sorts = () => [
-    ["reconciliationStatus", true],
-    ["codeExt", true],
-    ["label", true],
-    ["codeTp", true],
-    ["codeReceipt", true],
-    ["fees", true],
-    ["amountReceived", true],
-    ["datePayment", true],
-    ["paymentOrigin", true],
-    ["payerRef", true],
-  ];
+  const sorts = () => {
+    const result = [
+      ["codeExt", true],
+      ["datePayment", true],
+      ["amountReceived", true],
+      ["paymentOrigin", true],
+    ];
+    if (isLedgerEnabled) {
+      result.push(["paymentDestination", true]);
+    }
+    return result;
+  };
 
   const defaultFilters = () => ({
     subjectIds: {

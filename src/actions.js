@@ -128,20 +128,20 @@ const BILL_PAYMENT_FULL_PROJECTION = [
   "paymentOrigin",
 ];
 
-// new payment design
+// new payment design: only the fields actually used by the invoice payments
+// panel are projected; `paymentDestination` is the ledger journal recorded for
+// the payment (backend contract #37884, reverse join on LedgerEntryMeta).
+// `paymentDestination` is only exposed on PaymentInvoiceGQLType by the ledger
+// module, so it must be requested ONLY when the ledger module is loaded
+// (otherwise GraphQL returns 400: cannot query field paymentDestination).
 const PAYMENT_INVOICE_FULL_PROJECTION = [
   "id",
-  "reconciliationStatus",
   "codeExt",
-  "codeTp",
-  "codeReceipt",
-  "label",
-  "fees",
   "amountReceived",
   "datePayment",
   "paymentOrigin",
-  "payerRef"
 ];
+const PAYMENT_INVOICE_LEDGER_PROJECTION = ["paymentDestination"];
 
 const DETAIL_PAYMENT_INVOICE_FULL_PROJECTION = [
   "id",
@@ -216,6 +216,8 @@ const formatPaymentInvoiceGQL = (payment, subjectId, subjectType) =>
     ${!!payment.datePayment ? `datePayment: "${payment.datePayment}"` : ""}
     ${!!payment.paymentOrigin ? `paymentOrigin: "${payment.paymentOrigin}"` : ""}
     ${!!payment.payerRef ? `payerRef: "${payment.payerRef}"` : ""}
+    ${!!payment.paymentDestination ? `paymentDestination: "${payment.paymentDestination}"` : ""}
+    ${!!payment.party ? `party: "${payment.party}"` : ""}
   `;
 
 export function fetchInvoices(params) {
@@ -452,8 +454,11 @@ export function createBillEventType(billEvent, clientMutationLabel) {
 }
 
 //payment new design
-export function fetchPaymentInvoices(params) {
-  const payload = formatPageQueryWithCount("paymentInvoice", params, PAYMENT_INVOICE_FULL_PROJECTION);
+export function fetchPaymentInvoices(params, ledgerEnabled = false) {
+  const projection = ledgerEnabled
+    ? [...PAYMENT_INVOICE_FULL_PROJECTION, ...PAYMENT_INVOICE_LEDGER_PROJECTION]
+    : PAYMENT_INVOICE_FULL_PROJECTION;
+  const payload = formatPageQueryWithCount("paymentInvoice", params, projection);
   return graphql(payload, ACTION_TYPE.SEARCH_PAYMENT_INVOICE);
 }
 

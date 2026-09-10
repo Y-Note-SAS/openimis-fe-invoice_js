@@ -4,7 +4,7 @@ import { formatMessage, PublishedComponent, FormattedMessage } from "@openimis/f
 import { INVOICE_PAYMENTS_TAB_VALUE, RIGHT_INVOICE_PAYMENT_SEARCH, RIGHT_INVOICE_PAYMENT_CREATE } from "../constants";
 import InvoicePaymentsSearcher from "./InvoicePaymentsSearcher";
 import { Grid, Typography } from "@mui/material";
-import CreateInvoicePaymentDialog from "../dialogs/InvoicePaymentDialog";
+import CreateInvoicePaymentDialog from "../dialogs/CreateInvoicePaymentDialog";
 
 const InvoicePaymentsTabLabel = ({ intl, rights, onChange, tabStyle, isSelected }) =>
   rights?.includes(RIGHT_INVOICE_PAYMENT_SEARCH) && (
