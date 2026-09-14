@@ -25,7 +25,7 @@ import {
   withModulesManager,
 } from "@openimis/fe-core";
 import { createPaymentInvoiceWithDetail } from "../actions";
-import { EMPTY_PAYMENT_INVOICE, PAYMENT_STATUS } from "../constants";
+import { EMPTY_PAYMENT_INVOICE, PAYMENT_STATUS, PAYMENT_DESTINATION_JOURNAL_TYPE } from "../constants";
 import InvoicePaymentStatusPicker from "../pickers/InvoicePaymentStatusPicker";
 import PaymentOriginPicker from "../pickers/PaymentOriginPicker";
 import { defaultDialogStyles } from "../util/styles";
@@ -70,11 +70,7 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
   const [selectedParty, setSelectedParty] = useState(null);
 
   const isLedgerEnabled = !!modulesManager.getRef("ledger.LedgerJournalPicker");
-  const destinationJournalType = modulesManager.getConf(
-    "fe-invoice",
-    "invoicePayment.paymentDestinationJournalType",
-    "TRESORERIE",
-  );
+  const destinationJournalType = PAYMENT_DESTINATION_JOURNAL_TYPE;
 
   const resetForm = () => {
     setPayment(newInvoicePayment(invoice));

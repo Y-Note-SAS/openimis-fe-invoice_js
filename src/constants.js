@@ -181,3 +181,10 @@ export const DEFAULT = {
   IS_WORKER: false,
   ECONOMIC_UNIT_CONFIG: false,
 };
+
+// Reference value of the ledger journal type allowed as invoice payment
+// destination: a `JournalTypes.code` from the ledger backend reference table
+// (OpenIMIS/ledger `tblJournalTypes`). It is sent to the ledger
+// `ledgerJournal(type_Code: ...)` query through the LedgerJournalPicker `type`
+// prop; see the #37884 contract (invoice payment -> ledger entry meta).
+export const PAYMENT_DESTINATION_JOURNAL_TYPE = "treasury";

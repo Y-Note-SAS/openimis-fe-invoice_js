@@ -13,7 +13,7 @@ import {
   withModulesManager,
   GRID_RESPONSIVE_STANDARD,
 } from "@openimis/fe-core";
-import { CONTAINS_LOOKUP, DEFUALT_DEBOUNCE_TIME } from "../constants";
+import { CONTAINS_LOOKUP, DEFUALT_DEBOUNCE_TIME, PAYMENT_DESTINATION_JOURNAL_TYPE } from "../constants";
 import { defaultFilterStyles } from "../util/styles";
 import PaymentOriginPicker from "../pickers/PaymentOriginPicker";
 
@@ -25,11 +25,7 @@ const InvoicePaymentsFilter = ({ intl, modulesManager, filters, onChangeFilters 
   const debouncedOnChangeFilters = _debounce(onChangeFilters, DEFUALT_DEBOUNCE_TIME);
 
   const isLedgerEnabled = !!modulesManager.getRef("ledger.LedgerJournalPicker");
-  const destinationJournalType = modulesManager.getConf(
-    "fe-invoice",
-    "invoicePayment.paymentDestinationJournalType",
-    "TRESORERIE",
-  );
+  const destinationJournalType = PAYMENT_DESTINATION_JOURNAL_TYPE;
 
   const filterValue = (filterName) => filters?.[filterName]?.value;
 
