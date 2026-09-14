@@ -141,7 +141,11 @@ const PAYMENT_INVOICE_FULL_PROJECTION = [
   "datePayment",
   "paymentOrigin",
 ];
-const PAYMENT_INVOICE_LEDGER_PROJECTION = ["paymentDestination"];
+// `paymentDestination` is a LedgerJournal reference (LedgerJournalGQLType on the
+// backend, contract #37884), so it needs an explicit sub-selection. Querying the
+// bare field returns: Field "paymentDestination" of type "LedgerJournalGQLType"
+// must have a sub selection.
+const PAYMENT_INVOICE_LEDGER_PROJECTION = ["paymentDestination{name code}"];
 
 const DETAIL_PAYMENT_INVOICE_FULL_PROJECTION = [
   "id",
