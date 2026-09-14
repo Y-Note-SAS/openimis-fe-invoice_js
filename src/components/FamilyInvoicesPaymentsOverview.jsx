@@ -329,6 +329,8 @@ const mapDispatchToProps = (dispatch) => ({
     dispatch(fetchDetailPaymentInvoices(params, ACTION_TYPE.SEARCH_INVOICE_PAYMENTS_OVERVIEW, { invoiceId })),
 });
 
+export { FamilyInvoicesPaymentsOverview };
+
 export default withModulesManager(
   injectIntl(connect(mapStateToProps, mapDispatchToProps)(FamilyInvoicesPaymentsOverview)),
 );

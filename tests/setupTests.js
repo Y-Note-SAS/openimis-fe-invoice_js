@@ -1,0 +1,164 @@
+import React from "react";
+import "@testing-library/jest-dom/vitest";
+import { afterEach } from "vitest";
+import { cleanup } from "@testing-library/react";
+import { vi } from "vitest";
+
+afterEach(() => {
+  cleanup();
+});
+
+vi.mock("@mui/material/styles", () => ({
+  useTheme: () => ({
+    spacing: (...values) => values.map((v) => `${v * 8}px`).join(" "),
+    palette: { primary: { main: "#006273", light: "#b7d4d8" } },
+    paper: {},
+    table: {},
+  }),
+  styled: (Component) => (styles) => {
+    if (typeof styles === "function") {
+      styles({
+        theme: {
+          spacing: (...values) => values.join(" "),
+          palette: { primary: { main: "#006273", light: "#b7d4d8" } },
+          shadows: [],
+          paper: {},
+          table: {},
+        },
+      });
+    }
+    return Component;
+  },
+}));
+
+vi.mock("@mui/material", () => ({
+  Typography: ({ children }) => React.createElement("span", null, children),
+  Button: ({ children, onClick, disabled, type, component, href, download }) =>
+    component === "a"
+      ? React.createElement("a", { href, download, onClick }, children)
+      : React.createElement("button", { type: type ?? "button", onClick, disabled }, children),
+  MenuItem: ({ value, children }) => React.createElement("option", { value: value ?? "" }, children),
+  Select: ({ value, children, onChange, inputProps = {} }) => {
+    const options = React.Children.toArray(children);
+    return React.createElement(
+      "select",
+      {
+        "aria-label": inputProps?.["aria-label"],
+        value: value ?? "",
+        onChange: (event) => onChange?.({ target: { value: event.target.value } }),
+      },
+      options.map((option) =>
+        React.createElement(
+          "option",
+          {
+            key: String(option?.props?.value ?? ""),
+            value: option?.props?.value ?? "",
+          },
+          option?.props?.children,
+        ),
+      ),
+    );
+  },
+  Chip: ({ label }) => React.createElement("span", null, label),
+  Grid: ({ children }) => React.createElement("div", null, children),
+  Autocomplete: ({
+    options = [],
+    value = null,
+    inputValue = "",
+    onInputChange,
+    onChange,
+    getOptionLabel = (option) => (typeof option === "string" ? option : option?.label || ""),
+    renderInput,
+    readOnly,
+  }) => {
+    const optionValue = (option) => {
+      if (option === null || option === undefined) return "";
+      if (typeof option !== "object") return String(option);
+      return String(option.value ?? option.uuid ?? option.code ?? option.id ?? "");
+    };
+    return React.createElement(
+      "div",
+      null,
+      renderInput
+        ? renderInput({
+            inputProps: {
+              value: inputValue,
+              readOnly,
+              onChange: (event) => onInputChange?.(event, event.target.value),
+            },
+          })
+        : null,
+      React.createElement(
+        "select",
+        {
+          "aria-label": "autocomplete-options",
+          value: optionValue(value),
+          onChange: (event) => {
+            const selected =
+              options.find((option) => optionValue(option) === event.target.value) ??
+              (event.target.value ? event.target.value : null);
+            onChange?.(event, selected);
+          },
+        },
+        [
+          React.createElement("option", { key: "__empty__", value: "" }, ""),
+          ...options.map((option, index) =>
+            React.createElement(
+              "option",
+              {
+                key: optionValue(option) || `option-${index}`,
+                value: optionValue(option),
+              },
+              getOptionLabel(option),
+            ),
+          ),
+        ],
+      ),
+    );
+  },
+  TextField: ({ label, inputProps = {}, select, children, fullWidth, multiline, minRows, margin, ...props }) =>
+    select
+      ? React.createElement("select", { "aria-label": label, ...inputProps, ...props }, children)
+      : React.createElement("input", {
+          "aria-label": label,
+          ...inputProps,
+          ...props,
+        }),
+  Stack: ({
+    children,
+    role,
+    "aria-live": ariaLive,
+    spacing,
+    direction,
+    alignItems,
+    justifyContent,
+    divider,
+    useFlexGap,
+    flexWrap,
+    ...props
+  }) => React.createElement("div", { role, "aria-live": ariaLive, ...props }, children),
+  Paper: ({ children }) => React.createElement("div", null, children),
+  Box: ({ children }) => React.createElement("div", null, children),
+  Alert: ({ children }) => React.createElement("div", null, children),
+  Divider: () => React.createElement("div"),
+  Table: ({ children }) => React.createElement("table", null, children),
+  TableHead: ({ children }) => React.createElement("thead", null, children),
+  TableBody: ({ children }) => React.createElement("tbody", null, children),
+  TableRow: ({ children }) => React.createElement("tr", null, children),
+  TableCell: ({ children }) => React.createElement("td", null, children),
+  Dialog: ({ children, open }) => (open ? React.createElement("div", { role: "dialog" }, children) : null),
+  DialogTitle: ({ children }) => React.createElement("h2", null, children),
+  DialogContent: ({ children }) => React.createElement("div", null, children),
+  DialogContentText: ({ children }) => React.createElement("p", null, children),
+  DialogActions: ({ children }) => React.createElement("div", null, children),
+  FormControl: ({ children }) => React.createElement("div", null, children),
+  CircularProgress: (props) => React.createElement("div", { role: "progressbar", ...props }),
+  Fab: ({ children, onClick, ...props }) =>
+    React.createElement("button", { type: "button", onClick, ...props }, children),
+  Tab: ({ label, value, ...props }) =>
+    React.createElement("button", { type: "button", "data-value": value, ...props }, label),
+  IconButton: ({ children, onClick, ...props }) =>
+    React.createElement("button", { type: "button", onClick, ...props }, children),
+  Tooltip: ({ children }) => React.createElement(React.Fragment, null, children),
+  InputLabel: ({ children }) => React.createElement("label", null, children),
+}));
