@@ -143,7 +143,10 @@ const InvoicePaymentsSearcher = ({
     ];
 
     if (isLedgerEnabled) {
-      formatters.push((paymentInvoice) => paymentInvoice?.paymentDestination || EMPTY_STRING);
+      formatters.push(
+        (paymentInvoice) =>
+          paymentInvoice?.paymentDestination?.name || paymentInvoice?.paymentDestination?.code || EMPTY_STRING,
+      );
     }
 
     if (rights.includes(RIGHT_INVOICE_PAYMENT_DELETE)) {
