@@ -61,6 +61,21 @@ const todayIso = () => {
   return `${now.getFullYear()}-${month}-${day}`;
 };
 
+// The ledger pickers expose relay global ids (base64 "<TypeName>:<uuid>"), while
+// the backend mutation accepts raw UUIDs for `paymentDestination` (LedgerJournal)
+// and `partyId` (analytic value). Decode before sending, otherwise the API
+// rejects the value with "badly formed hexadecimal UUID string".
+const ledgerUuid = (node) => {
+  const rawId = node?.id ?? node?.analyticValueId;
+  if (!rawId) return null;
+  try {
+    const [, uuid] = atob(rawId).split(":");
+    return uuid || rawId;
+  } catch {
+    return rawId;
+  }
+};
+
 const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDetail, modulesManager }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [payment, setPayment] = useState(() => newInvoicePayment(invoice));
@@ -100,9 +115,10 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
     if (isLedgerEnabled) {
       // Contract with the backend ledger integration (#37884): the destination
       // journal is sent so the ledger records a LedgerEntryMeta on that journal
-      // for this payment, and the third-party analytic tags that entry.
-      invoicePayment.paymentDestination = selectedJournal?.code || null;
-      invoicePayment.party = selectedParty?.analyticValueId || null;
+      // for this payment, and the third-party analytic tags that entry. The
+      // mutation expects raw UUIDs (`paymentDestination`, `partyId`).
+      invoicePayment.paymentDestination = ledgerUuid(selectedJournal);
+      invoicePayment.partyId = ledgerUuid(selectedParty);
     }
     createPaymentInvoiceWithDetail(
       invoicePayment,
@@ -118,6 +134,7 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
 
   const canSave =
     !!payment.codeExt &&
+    !!payment.payerRef &&
     !!payment.amountReceived &&
     !!payment.datePayment &&
     !!payment.status &&
@@ -159,6 +176,15 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
                       label="invoicePayment.paymentReference"
                       value={payment?.codeExt}
                       onChange={onAttributeChange("codeExt")}
+                      required
+                    />
+                  </Grid>
+                  <Grid size={6}>
+                    <TextInput
+                      module="invoice"
+                      label="paymentInvoice.payerRef"
+                      value={payment?.payerRef}
+                      onChange={onAttributeChange("payerRef")}
                       required
                     />
                   </Grid>
@@ -273,6 +299,10 @@ const newInvoicePayment = (invoice) => ({
   invoiceId: invoice?.id,
   ...EMPTY_PAYMENT_INVOICE,
   status: PAYMENT_STATUS.ACCEPTED,
+  // Mandatory backend fields, sent even when zero: `reconciliation_status`
+  // (0 = not reconciliated) and `fees` (read by the detail builder).
+  reconciliationStatus: 0,
+  fees: "0.00",
   amountReceived: invoice?.amountNet,
   datePayment: todayIso(),
 });

@@ -210,18 +210,18 @@ const formatPaymentInvoiceGQL = (payment, subjectId, subjectType) =>
     ${!!subjectId ? `subjectId: "${subjectId}"` : ""}
     ${!!subjectType ? `subjectType: "${subjectType}"` : ""}
     ${!!payment.status ? `status: ${payment.status}` : ""}
-    ${!!payment.reconciliationStatus ? `reconciliationStatus: ${payment.reconciliationStatus}` : ""}
+    ${payment.reconciliationStatus != null ? `reconciliationStatus: ${payment.reconciliationStatus}` : ""}
     ${!!payment.codeExt ? `codeExt: "${payment.codeExt}"` : ""}
     ${!!payment.label ? `label: "${payment.label}"` : ""}
     ${!!payment.codeTp ? `codeTp: "${payment.codeTp}"` : ""}
     ${!!payment.codeReceipt ? `codeReceipt: "${payment.codeReceipt}"` : ""}
-    ${!!payment.fees ? `fees: "${payment.fees}"` : ""}
+    ${payment.fees != null ? `fees: "${payment.fees}"` : ""}
     ${!!payment.amountReceived ? `amountReceived: "${payment.amountReceived}"` : ""}
     ${!!payment.datePayment ? `datePayment: "${payment.datePayment}"` : ""}
     ${!!payment.paymentOrigin ? `paymentOrigin: "${payment.paymentOrigin}"` : ""}
     ${!!payment.payerRef ? `payerRef: "${payment.payerRef}"` : ""}
     ${!!payment.paymentDestination ? `paymentDestination: "${payment.paymentDestination}"` : ""}
-    ${!!payment.party ? `party: "${payment.party}"` : ""}
+    ${!!payment.partyId ? `partyId: "${payment.partyId}"` : ""}
   `;
 
 export function fetchInvoices(params) {
