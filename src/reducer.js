@@ -36,9 +36,17 @@ export const ACTION_TYPE = {
   CREATE_BILL_EVENT_MESSAGE: "BILL_CREATE_BILL_EVENT_MESSAGE",
   SEARCH_PAYMENT_INVOICE: "PAYMENTINVOICE__PAYMENT_INVOICE",
   SEARCH_DETAIL_PAYMENT_INVOICE: "PAYMENTINVOICE__DETAIL_PAYMENT_INVOICE",
+  SEARCH_FAMILY_INVOICE_PAYMENT_OVERVIEW: "INVOICE_FAMILY_INVOICE_PAYMENT_OVERVIEW",
+  SEARCH_FAMILY_INVOICE_PAYMENT_GLOBALS: "INVOICE_FAMILY_INVOICE_PAYMENT_GLOBALS",
+  SEARCH_INVOICE_PAYMENTS_OVERVIEW: "INVOICE_PAYMENTS_OVERVIEW",
   CREATE_PAYMENT_INVOICE_WITH_DETAIL: "PAYMENTINVOICE_CREATE_PAYMENT_INVOICE_WITH_DETAIL",
   DELETE_PAYMENT_INVOICE: "PAYMENTINVOICE_DELETE_PAYMENT_INVOICE",
 };
+
+// A response is stale when it carries a params key that is no longer the current
+// one (the request was superseded, typically by a family change).
+const isStaleResponse = (currentParamsKey, responseParamsKey) =>
+  !!responseParamsKey && !!currentParamsKey && responseParamsKey !== currentParamsKey;
 
 function reducer(
   state = {
@@ -118,6 +126,23 @@ function reducer(
     detailPaymentInvoices: [],
     detailPaymentInvoicesPageInfo: {},
     detailPaymentInvoicesTotalCount: 0,
+    fetchingFamilyInvoicePaymentOverview: false,
+    fetchedFamilyInvoicePaymentOverview: false,
+    errorFamilyInvoicePaymentOverview: null,
+    familyInvoicePaymentOverviewItems: [],
+    familyInvoicePaymentOverviewPageInfo: {},
+    familyInvoicePaymentOverviewTotalCount: 0,
+    totalInvoiceAmount: 0,
+    totalPaidAmount: 0,
+    globalBalance: 0,
+    fetchingFamilyInvoicePaymentGlobals: false,
+    fetchedFamilyInvoicePaymentGlobals: false,
+    errorFamilyInvoicePaymentGlobals: null,
+    familyInvoicePaymentGlobalsParamsKey: null,
+    familyInvoicePaymentOverviewParamsKey: null,
+    invoicePaymentsByInvoiceId: {},
+    isFetchingInvoicePaymentsByInvoiceId: {},
+    errorInvoicePaymentsByInvoiceId: {},
 
     fetchingBillsExport: true,
     fetchedBillsExport: false,
@@ -504,6 +529,120 @@ function reducer(
         fetchingDetailPaymentInvoices: false,
         errorDetailPaymentInvoices: formatServerError(action.payload),
       };
+
+    case REQUEST(ACTION_TYPE.SEARCH_FAMILY_INVOICE_PAYMENT_OVERVIEW):
+      return {
+        ...state,
+        fetchingFamilyInvoicePaymentOverview: true,
+        fetchedFamilyInvoicePaymentOverview: false,
+        errorFamilyInvoicePaymentOverview: null,
+        familyInvoicePaymentOverviewItems: [],
+        familyInvoicePaymentOverviewPageInfo: {},
+        familyInvoicePaymentOverviewTotalCount: 0,
+        familyInvoicePaymentOverviewParamsKey: action.meta?.paramsKey || null,
+      };
+    case SUCCESS(ACTION_TYPE.SEARCH_FAMILY_INVOICE_PAYMENT_OVERVIEW):
+      // Ignore the answer of a superseded request (e.g. the user switched family).
+      if (isStaleResponse(state.familyInvoicePaymentOverviewParamsKey, action.meta?.paramsKey)) return state;
+      return {
+        ...state,
+        fetchingFamilyInvoicePaymentOverview: false,
+        fetchedFamilyInvoicePaymentOverview: true,
+        errorFamilyInvoicePaymentOverview: formatGraphQLError(action.payload),
+        familyInvoicePaymentOverviewItems:
+          action.payload?.data?.familyInvoicePaymentOverview?.items || [],
+        familyInvoicePaymentOverviewPageInfo:
+          action.payload?.data?.familyInvoicePaymentOverview?.pageInfo || {},
+        familyInvoicePaymentOverviewTotalCount:
+          action.payload?.data?.familyInvoicePaymentOverview?.totalCount || 0,
+      };
+    case ERROR(ACTION_TYPE.SEARCH_FAMILY_INVOICE_PAYMENT_OVERVIEW):
+      if (isStaleResponse(state.familyInvoicePaymentOverviewParamsKey, action.meta?.paramsKey)) return state;
+      return {
+        ...state,
+        fetchingFamilyInvoicePaymentOverview: false,
+        errorFamilyInvoicePaymentOverview: formatServerError(action.payload),
+      };
+    case REQUEST(ACTION_TYPE.SEARCH_FAMILY_INVOICE_PAYMENT_GLOBALS):
+      return {
+        ...state,
+        fetchingFamilyInvoicePaymentGlobals: true,
+        fetchedFamilyInvoicePaymentGlobals: false,
+        errorFamilyInvoicePaymentGlobals: null,
+        familyInvoicePaymentGlobalsParamsKey: action.meta?.paramsKey || null,
+        // The previous family totals must not stay on screen while loading.
+        totalInvoiceAmount: 0,
+        totalPaidAmount: 0,
+        globalBalance: 0,
+      };
+    case SUCCESS(ACTION_TYPE.SEARCH_FAMILY_INVOICE_PAYMENT_GLOBALS):
+      // Ignore the answer of a superseded request (e.g. the user switched family).
+      if (isStaleResponse(state.familyInvoicePaymentGlobalsParamsKey, action.meta?.paramsKey)) return state;
+      return {
+        ...state,
+        fetchingFamilyInvoicePaymentGlobals: false,
+        fetchedFamilyInvoicePaymentGlobals: true,
+        errorFamilyInvoicePaymentGlobals: formatGraphQLError(action.payload),
+        totalInvoiceAmount: action.payload?.data?.familyInvoicePaymentGlobals?.totalInvoiceAmount || 0,
+        totalPaidAmount: action.payload?.data?.familyInvoicePaymentGlobals?.totalPaidAmount || 0,
+        globalBalance: action.payload?.data?.familyInvoicePaymentGlobals?.globalBalance || 0,
+      };
+    case ERROR(ACTION_TYPE.SEARCH_FAMILY_INVOICE_PAYMENT_GLOBALS):
+      if (isStaleResponse(state.familyInvoicePaymentGlobalsParamsKey, action.meta?.paramsKey)) return state;
+      return {
+        ...state,
+        fetchingFamilyInvoicePaymentGlobals: false,
+        errorFamilyInvoicePaymentGlobals: formatServerError(action.payload),
+      };
+    case REQUEST(ACTION_TYPE.SEARCH_INVOICE_PAYMENTS_OVERVIEW): {
+      const invoiceId = action.meta?.invoiceId || action.invoiceId;
+      if (!invoiceId) return state;
+      return {
+        ...state,
+        isFetchingInvoicePaymentsByInvoiceId: {
+          ...state.isFetchingInvoicePaymentsByInvoiceId,
+          [invoiceId]: true,
+        },
+        errorInvoicePaymentsByInvoiceId: {
+          ...state.errorInvoicePaymentsByInvoiceId,
+          [invoiceId]: null,
+        },
+      };
+    }
+    case SUCCESS(ACTION_TYPE.SEARCH_INVOICE_PAYMENTS_OVERVIEW): {
+      const invoiceId = action.meta?.invoiceId || action.invoiceId;
+      if (!invoiceId) return state;
+      return {
+        ...state,
+        invoicePaymentsByInvoiceId: {
+          ...state.invoicePaymentsByInvoiceId,
+          [invoiceId]: parseData(action.payload?.data?.detailPaymentInvoice),
+        },
+        isFetchingInvoicePaymentsByInvoiceId: {
+          ...state.isFetchingInvoicePaymentsByInvoiceId,
+          [invoiceId]: false,
+        },
+        errorInvoicePaymentsByInvoiceId: {
+          ...state.errorInvoicePaymentsByInvoiceId,
+          [invoiceId]: formatGraphQLError(action.payload),
+        },
+      };
+    }
+    case ERROR(ACTION_TYPE.SEARCH_INVOICE_PAYMENTS_OVERVIEW): {
+      const invoiceId = action.meta?.invoiceId || action.invoiceId;
+      if (!invoiceId) return state;
+      return {
+        ...state,
+        isFetchingInvoicePaymentsByInvoiceId: {
+          ...state.isFetchingInvoicePaymentsByInvoiceId,
+          [invoiceId]: false,
+        },
+        errorInvoicePaymentsByInvoiceId: {
+          ...state.errorInvoicePaymentsByInvoiceId,
+          [invoiceId]: formatServerError(action.payload),
+        },
+      };
+    }
 
     case REQUEST(ACTION_TYPE.MUTATION):
       return dispatchMutationReq(state, action);

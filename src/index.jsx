@@ -17,6 +17,7 @@ import { InvoiceEventsTabLabel, InvoiceEventsTabPanel } from "./components/Invoi
 import { BillLineItemsTabLabel, BillLineItemsTabPanel } from "./components/BillLineItemsTab";
 import { BillPaymentsTabLabel, BillPaymentsTabPanel } from "./components/BillPaymentsTab";
 import { BillEventsTabLabel, BillEventsTabPanel } from "./components/BillEventsTab";
+import FamilyInvoicesPaymentsOverview from "./components/FamilyInvoicesPaymentsOverview";
 import { getSubjectAndThirdpartyTypePicker } from "./util/subject-and-thirdparty-picker";
 import { fetchBillLineItems } from "./actions";
 import {
@@ -73,6 +74,7 @@ const DEFAULT_CONFIG = {
   "invoice.TabPanel.panel": [InvoiceLineItemsTabPanel, InvoicePaymentsTabPanel, InvoiceEventsTabPanel],
   "bill.TabPanel.label": [BillLineItemsTabLabel, BillPaymentsTabLabel, BillEventsTabLabel],
   "bill.TabPanel.panel": [BillLineItemsTabPanel, BillPaymentsTabPanel, BillEventsTabPanel],
+  "insuree.FamilyOverview.panels": [FamilyInvoicesPaymentsOverview],
   "invoice.MainMenu": [
     {
       text: "invoice.menu.invoices",
