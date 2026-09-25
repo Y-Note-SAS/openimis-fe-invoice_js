@@ -123,5 +123,22 @@ export default defineConfig({
   },
   ssr: {
     noExternal,
-  }
+  },
+  test: {
+    // `develop` n'a pas encore de test : la CI ne doit pas échouer sur une
+    // branche sans fichier de test.
+    passWithNoTests: true,
+    environment: 'jsdom',
+    setupFiles: ['./tests/setupTests.js'],
+    include: ['tests/**/*.test.{js,jsx}', 'src/**/*.test.{js,jsx}'],
+    alias: {
+      '@openimis/fe-core': path.resolve(__dirname, 'tests/mocks/feCore.jsx'),
+    },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/index.jsx'],
+    },
+  },
 });
