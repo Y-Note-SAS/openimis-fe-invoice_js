@@ -303,6 +303,7 @@
     "paymentOrigin": "Payment Origin",
     "payerRef": "Payer Reference",
     "payerName": "Payer Name",
+    "party": "Third Party",
     "create": {
       "label": "Create new Payment",
       "mutationLabel": "Create Payment {paymentInvoiceLabel} for {code}"

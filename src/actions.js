@@ -1,4 +1,4 @@
-import { graphql, formatPageQuery, formatPageQueryWithCount, formatMutation } from "@openimis/fe-core";
+import { graphql, formatPageQuery, formatPageQueryWithCount, formatMutation, formatGQLString } from "@openimis/fe-core";
 import { ACTION_TYPE } from "./reducer";
 import { ERROR, REQUEST, SUCCESS } from "./util/action-type";
 
@@ -130,10 +130,8 @@ const BILL_PAYMENT_FULL_PROJECTION = [
 
 // new payment design: only the fields actually used by the invoice payments
 // panel are projected; `paymentDestination` is the ledger journal recorded for
-// the payment (backend contract #37884, reverse join on LedgerEntryMeta).
-// `paymentDestination` is only exposed on PaymentInvoiceGQLType by the ledger
-// module, so it must be requested ONLY when the ledger module is loaded
-// (otherwise GraphQL returns 400: cannot query field paymentDestination).
+// the payment and `party` the third party, both stored by the backend behind a
+// GenericForeignKey (backend contract #37884).
 const PAYMENT_INVOICE_FULL_PROJECTION = [
   "id",
   "codeExt",
@@ -141,11 +139,13 @@ const PAYMENT_INVOICE_FULL_PROJECTION = [
   "datePayment",
   "paymentOrigin",
 ];
-// `paymentDestination` is a LedgerJournal reference (LedgerJournalGQLType on the
-// backend, contract #37884), so it needs an explicit sub-selection. Querying the
-// bare field returns: Field "paymentDestination" of type "LedgerJournalGQLType"
-// must have a sub selection.
-const PAYMENT_INVOICE_LEDGER_PROJECTION = ["paymentDestination{name code}"];
+// On PaymentInvoiceGQLType `paymentDestination` and `party` are exposed as JSON
+// scalars: they carry the record's own keys, camelCased (`name`, `code`, `id`,
+// `displayName`, `externalReference`, ...). A scalar takes no sub-selection, so
+// querying `paymentDestination{name code}` is rejected by GraphQL. They are only
+// projected when the ledger module is loaded, since the panel (and the pickers
+// feeding it) only make sense then.
+const PAYMENT_INVOICE_LEDGER_PROJECTION = ["paymentDestination", "party"];
 
 const DETAIL_PAYMENT_INVOICE_FULL_PROJECTION = [
   "id",
@@ -158,20 +158,29 @@ const DETAIL_PAYMENT_INVOICE_FULL_PROJECTION = [
 
 const INVOICE_EVENT_FULL_PROJECTION = ["eventType", "dateCreated", "message"];
 
+/**
+ * GraphQL string literal for a value typed by the user (or produced by a
+ * numeric input): JSON escaping is a subset of the GraphQL one, so a reference
+ * containing a quote, a backslash or a line break can no longer break the
+ * document. `String(...)` keeps numbers and dates safe (`formatGQLString`
+ * expects a string).
+ */
+const gqlString = (value) => (value === null || value === undefined ? "" : formatGQLString(String(value)));
+
 const formatInvoicePaymentGQL = (payment) =>
   `
-    ${!!payment.id ? `id: "${payment.id}"` : ""}
-    ${!!payment.invoiceId ? `invoiceId: "${payment.invoiceId}"` : ""}
+    ${!!payment.id ? `id: "${gqlString(payment.id)}"` : ""}
+    ${!!payment.invoiceId ? `invoiceId: "${gqlString(payment.invoiceId)}"` : ""}
     ${!!payment.status ? `status: ${payment.status}` : ""}
-    ${!!payment.codeExt ? `codeExt: "${payment.codeExt}"` : ""}
-    ${!!payment.label ? `label: "${payment.label}"` : ""}
-    ${!!payment.codeTp ? `codeTp: "${payment.codeTp}"` : ""}
-    ${!!payment.codeReceipt ? `codeReceipt: "${payment.codeReceipt}"` : ""}
-    ${!!payment.amountPayed ? `amountPayed: "${payment.amountPayed}"` : ""}
-    ${!!payment.fees ? `fees: "${payment.fees}"` : ""}
-    ${!!payment.amountReceived ? `amountReceived: "${payment.amountReceived}"` : ""}
-    ${!!payment.datePayment ? `datePayment: "${payment.datePayment}"` : ""}
-    ${!!payment.paymentOrigin ? `paymentOrigin: "${payment.paymentOrigin}"` : ""}
+    ${!!payment.codeExt ? `codeExt: "${gqlString(payment.codeExt)}"` : ""}
+    ${!!payment.label ? `label: "${gqlString(payment.label)}"` : ""}
+    ${!!payment.codeTp ? `codeTp: "${gqlString(payment.codeTp)}"` : ""}
+    ${!!payment.codeReceipt ? `codeReceipt: "${gqlString(payment.codeReceipt)}"` : ""}
+    ${!!payment.amountPayed ? `amountPayed: "${gqlString(payment.amountPayed)}"` : ""}
+    ${!!payment.fees ? `fees: "${gqlString(payment.fees)}"` : ""}
+    ${!!payment.amountReceived ? `amountReceived: "${gqlString(payment.amountReceived)}"` : ""}
+    ${!!payment.datePayment ? `datePayment: "${gqlString(payment.datePayment)}"` : ""}
+    ${!!payment.paymentOrigin ? `paymentOrigin: "${gqlString(payment.paymentOrigin)}"` : ""}
   `;
 
 const formatInvoiceEventMessageGQL = (eventMessage) =>
@@ -183,18 +192,18 @@ const formatInvoiceEventMessageGQL = (eventMessage) =>
 
 const formatBillPaymentGQL = (payment) =>
   `
-    ${!!payment.id ? `id: "${payment.id}"` : ""}
-    ${!!payment.billId ? `billId: "${payment.billId}"` : ""}
+    ${!!payment.id ? `id: "${gqlString(payment.id)}"` : ""}
+    ${!!payment.billId ? `billId: "${gqlString(payment.billId)}"` : ""}
     ${!!payment.status ? `status: ${payment.status}` : ""}
-    ${!!payment.codeExt ? `codeExt: "${payment.codeExt}"` : ""}
-    ${!!payment.label ? `label: "${payment.label}"` : ""}
-    ${!!payment.codeTp ? `codeTp: "${payment.codeTp}"` : ""}
-    ${!!payment.codeReceipt ? `codeReceipt: "${payment.codeReceipt}"` : ""}
-    ${!!payment.amountPayed ? `amountPayed: "${payment.amountPayed}"` : ""}
-    ${!!payment.fees ? `fees: "${payment.fees}"` : ""}
-    ${!!payment.amountReceived ? `amountReceived: "${payment.amountReceived}"` : ""}
-    ${!!payment.datePayment ? `datePayment: "${payment.datePayment}"` : ""}
-    ${!!payment.paymentOrigin ? `paymentOrigin: "${payment.paymentOrigin}"` : ""}
+    ${!!payment.codeExt ? `codeExt: "${gqlString(payment.codeExt)}"` : ""}
+    ${!!payment.label ? `label: "${gqlString(payment.label)}"` : ""}
+    ${!!payment.codeTp ? `codeTp: "${gqlString(payment.codeTp)}"` : ""}
+    ${!!payment.codeReceipt ? `codeReceipt: "${gqlString(payment.codeReceipt)}"` : ""}
+    ${!!payment.amountPayed ? `amountPayed: "${gqlString(payment.amountPayed)}"` : ""}
+    ${!!payment.fees ? `fees: "${gqlString(payment.fees)}"` : ""}
+    ${!!payment.amountReceived ? `amountReceived: "${gqlString(payment.amountReceived)}"` : ""}
+    ${!!payment.datePayment ? `datePayment: "${gqlString(payment.datePayment)}"` : ""}
+    ${!!payment.paymentOrigin ? `paymentOrigin: "${gqlString(payment.paymentOrigin)}"` : ""}
   `;
 
 const formatBillEventMessageGQL = (eventMessage) =>
@@ -206,22 +215,22 @@ const formatBillEventMessageGQL = (eventMessage) =>
 
 const formatPaymentInvoiceGQL = (payment, subjectId, subjectType) =>
   `
-    ${!!payment.id ? `id: "${payment.id}"` : ""}
-    ${!!subjectId ? `subjectId: "${subjectId}"` : ""}
-    ${!!subjectType ? `subjectType: "${subjectType}"` : ""}
+    ${!!payment.id ? `id: "${gqlString(payment.id)}"` : ""}
+    ${!!subjectId ? `subjectId: "${gqlString(subjectId)}"` : ""}
+    ${!!subjectType ? `subjectType: "${gqlString(subjectType)}"` : ""}
     ${!!payment.status ? `status: ${payment.status}` : ""}
-    ${!!payment.reconciliationStatus ? `reconciliationStatus: ${payment.reconciliationStatus}` : ""}
-    ${!!payment.codeExt ? `codeExt: "${payment.codeExt}"` : ""}
-    ${!!payment.label ? `label: "${payment.label}"` : ""}
-    ${!!payment.codeTp ? `codeTp: "${payment.codeTp}"` : ""}
-    ${!!payment.codeReceipt ? `codeReceipt: "${payment.codeReceipt}"` : ""}
-    ${!!payment.fees ? `fees: "${payment.fees}"` : ""}
-    ${!!payment.amountReceived ? `amountReceived: "${payment.amountReceived}"` : ""}
-    ${!!payment.datePayment ? `datePayment: "${payment.datePayment}"` : ""}
-    ${!!payment.paymentOrigin ? `paymentOrigin: "${payment.paymentOrigin}"` : ""}
-    ${!!payment.payerRef ? `payerRef: "${payment.payerRef}"` : ""}
-    ${!!payment.paymentDestination ? `paymentDestination: "${payment.paymentDestination}"` : ""}
-    ${!!payment.party ? `party: "${payment.party}"` : ""}
+    ${payment.reconciliationStatus != null ? `reconciliationStatus: ${payment.reconciliationStatus}` : ""}
+    ${!!payment.codeExt ? `codeExt: "${gqlString(payment.codeExt)}"` : ""}
+    ${!!payment.label ? `label: "${gqlString(payment.label)}"` : ""}
+    ${!!payment.codeTp ? `codeTp: "${gqlString(payment.codeTp)}"` : ""}
+    ${!!payment.codeReceipt ? `codeReceipt: "${gqlString(payment.codeReceipt)}"` : ""}
+    ${payment.fees != null ? `fees: "${gqlString(payment.fees)}"` : ""}
+    ${!!payment.amountReceived ? `amountReceived: "${gqlString(payment.amountReceived)}"` : ""}
+    ${!!payment.datePayment ? `datePayment: "${gqlString(payment.datePayment)}"` : ""}
+    ${!!payment.paymentOrigin ? `paymentOrigin: "${gqlString(payment.paymentOrigin)}"` : ""}
+    ${!!payment.payerRef ? `payerRef: "${gqlString(payment.payerRef)}"` : ""}
+    ${!!payment.paymentDestinationId ? `paymentDestinationId: "${gqlString(payment.paymentDestinationId)}"` : ""}
+    ${!!payment.partyId ? `partyId: "${gqlString(payment.partyId)}"` : ""}
   `;
 
 export function fetchInvoices(params) {
