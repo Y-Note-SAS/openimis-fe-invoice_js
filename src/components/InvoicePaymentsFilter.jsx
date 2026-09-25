@@ -15,6 +15,7 @@ import {
 } from "@openimis/fe-core";
 import { CONTAINS_LOOKUP, DEFUALT_DEBOUNCE_TIME, PAYMENT_DESTINATION_JOURNAL_TYPE } from "../constants";
 import { defaultFilterStyles } from "../util/styles";
+import { ledgerUuid } from "../util/ledger-uuid";
 import PaymentOriginPicker from "../pickers/PaymentOriginPicker";
 
 const StyledInvoicePaymentsFilter = styled("div")(({ theme }) => ({
@@ -87,10 +88,15 @@ const InvoicePaymentsFilter = ({ intl, modulesManager, filters, onChangeFilters 
               pubRef="ledger.LedgerJournalPicker"
               type={destinationJournalType}
               label={formatMessage(intl, "invoice", "paymentInvoice.paymentDestination")}
-              value={filterValue("paymentDestination")}
+              value={filterValue("paymentDestinationId")}
               onChange={(journal) => {
-                const code = journal?.code || null;
-                setFilter("paymentDestination", code, code ? `paymentDestination: "${code}"` : null);
+                // The backend filters on the stored UUID
+                // (`paymentDestinationId`), but the picker resolves its label
+                // from the journal object (a raw UUID would be displayed as is):
+                // keep the object as the filter value, and the UUID in the
+                // GraphQL expression.
+                const uuid = ledgerUuid(journal);
+                setFilter("paymentDestinationId", journal || null, uuid ? `paymentDestinationId: "${uuid}"` : null);
               }}
             />
           </Grid>

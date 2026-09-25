@@ -7,6 +7,7 @@ import {
   formatDateFromISO,
   withModulesManager,
   coreConfirm,
+  journalize,
   GetIconComponent,
 } from "@openimis/fe-core";
 import { bindActionCreators } from "redux";
@@ -15,6 +16,7 @@ import { fetchPaymentInvoices, deletePaymentInvoice } from "../actions";
 import { DEFAULT_PAGE_SIZE, EMPTY_STRING, RIGHT_INVOICE_PAYMENT_DELETE, ROWS_PER_PAGE_OPTIONS } from "../constants";
 import InvoicePaymentsFilter from "./InvoicePaymentsFilter";
 import { getPaymentOriginLabel } from "../pickers/PaymentOriginPicker";
+import { parseJsonField } from "../util/gql-payload";
 import { IconButton, Tooltip } from "@mui/material";
 import { ACTION_TYPE } from "../reducer";
 
@@ -30,6 +32,7 @@ const InvoicePaymentsSearcher = ({
   submittingMutation,
   mutation,
   coreConfirm,
+  journalize,
   confirmed,
   fetchPaymentInvoices,
   fetchingPaymentInvoices,
@@ -60,14 +63,19 @@ const InvoicePaymentsSearcher = ({
   }, [confirmed]);
 
   useEffect(() => {
-    if (
-      prevSubmittingMutationRef.current &&
-      !submittingMutation &&
-      [ACTION_TYPE.CREATE_PAYMENT_INVOICE_WITH_DETAIL, ACTION_TYPE.UPDATE_INVOICE_PAYMENT].includes(
-        mutation?.actionType,
-      )
-    ) {
-      refetch();
+    if (prevSubmittingMutationRef.current && !submittingMutation) {
+      // Hand the finished mutation to the core JournalDrawer: it polls
+      // `mutationLogs(clientMutationId)`, shows the failed mutation in red and
+      // displays the backend error message/detail (rather than silently
+      // dropping a rejected payment creation).
+      journalize(mutation);
+      if (
+        [ACTION_TYPE.CREATE_PAYMENT_INVOICE_WITH_DETAIL, ACTION_TYPE.UPDATE_INVOICE_PAYMENT].includes(
+          mutation?.actionType,
+        )
+      ) {
+        refetch();
+      }
     }
   }, [submittingMutation]);
 
@@ -126,7 +134,7 @@ const InvoicePaymentsSearcher = ({
       "paymentInvoice.paymentOrigin",
     ];
     if (isLedgerEnabled) {
-      result.push("paymentInvoice.paymentDestination");
+      result.push("paymentInvoice.paymentDestination", "paymentInvoice.party");
     }
     return result;
   };
@@ -144,8 +152,17 @@ const InvoicePaymentsSearcher = ({
 
     if (isLedgerEnabled) {
       formatters.push(
-        (paymentInvoice) =>
-          paymentInvoice?.paymentDestination?.name || paymentInvoice?.paymentDestination?.code || EMPTY_STRING,
+        // `paymentDestination` / `party` are JSON scalars (backend #37884): the
+        // response carries a JSON string, so it is parsed before reading the
+        // journal label / the third-party name.
+        (paymentInvoice) => {
+          const destination = parseJsonField(paymentInvoice?.paymentDestination);
+          return destination?.name || destination?.code || EMPTY_STRING;
+        },
+        (paymentInvoice) => {
+          const party = parseJsonField(paymentInvoice?.party);
+          return party?.displayName || party?.externalReference || EMPTY_STRING;
+        },
       );
     }
 
@@ -172,6 +189,9 @@ const InvoicePaymentsSearcher = ({
       ["paymentOrigin", true],
     ];
     if (isLedgerEnabled) {
+      // One entry per *sortable* column: the journal column is sortable (the
+      // backend orders on the journal label) while the third-party column, like
+      // the action column, simply has no entry.
       result.push(["paymentDestination", true]);
     }
     return result;
@@ -237,6 +257,7 @@ const mapDispatchToProps = (dispatch) =>
       fetchPaymentInvoices,
       deletePaymentInvoice,
       coreConfirm,
+      journalize,
     },
     dispatch,
   );

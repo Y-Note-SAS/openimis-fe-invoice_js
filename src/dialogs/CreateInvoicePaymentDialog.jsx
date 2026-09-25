@@ -25,10 +25,11 @@ import {
   withModulesManager,
 } from "@openimis/fe-core";
 import { createPaymentInvoiceWithDetail } from "../actions";
-import { EMPTY_PAYMENT_INVOICE, PAYMENT_STATUS, PAYMENT_DESTINATION_JOURNAL_TYPE } from "../constants";
+import { EMPTY_PAYMENT_INVOICE, EMPTY_STRING, PAYMENT_STATUS, PAYMENT_DESTINATION_JOURNAL_TYPE } from "../constants";
 import InvoicePaymentStatusPicker from "../pickers/InvoicePaymentStatusPicker";
 import PaymentOriginPicker from "../pickers/PaymentOriginPicker";
 import { defaultDialogStyles } from "../util/styles";
+import { ledgerUuid } from "../util/ledger-uuid";
 
 const CloseIcon = GetIconComponent("Close");
 const AddIcon = GetIconComponent("Add");
@@ -98,11 +99,13 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
       paymentOrigin: paymentOrigin === "OTHER" ? otherOrigin : paymentOrigin,
     };
     if (isLedgerEnabled) {
-      // Contract with the backend ledger integration (#37884): the destination
-      // journal is sent so the ledger records a LedgerEntryMeta on that journal
-      // for this payment, and the third-party analytic tags that entry.
-      invoicePayment.paymentDestination = selectedJournal?.code || null;
-      invoicePayment.party = selectedParty?.analyticValueId || null;
+      // Contract with the backend (#37884): the destination journal and the
+      // third party are sent as raw UUIDs (`paymentDestinationId`, `partyId`).
+      // The backend resolves their ContentType itself — `payment_destination_id`
+      // -> LedgerJournal, `party_id` -> AnalyticValue — and stores both behind a
+      // GenericForeignKey, which is what the payments panel then reads back.
+      invoicePayment.paymentDestinationId = ledgerUuid(selectedJournal);
+      invoicePayment.partyId = ledgerUuid(selectedParty);
     }
     createPaymentInvoiceWithDetail(
       invoicePayment,
@@ -118,6 +121,7 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
 
   const canSave =
     !!payment.codeExt &&
+    !!payment.payerRef &&
     !!payment.amountReceived &&
     !!payment.datePayment &&
     !!payment.status &&
@@ -159,6 +163,15 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
                       label="invoicePayment.paymentReference"
                       value={payment?.codeExt}
                       onChange={onAttributeChange("codeExt")}
+                      required
+                    />
+                  </Grid>
+                  <Grid size={6}>
+                    <TextInput
+                      module="invoice"
+                      label="paymentInvoice.payerRef"
+                      value={payment?.payerRef}
+                      onChange={onAttributeChange("payerRef")}
                       required
                     />
                   </Grid>
@@ -239,12 +252,12 @@ const CreateInvoicePaymentDialog = ({ intl, invoice, createPaymentInvoiceWithDet
                         <Grid container spacing={1}>
                           <Grid size={6}>
                             <Typography variant="body2">
-                              {`${formatMessage(intl, "invoice", "invoicePayment.accountCode")}: ${selectedParty?.analyticValueId || ""}`}
+                              {`${formatMessage(intl, "invoice", "invoicePayment.accountCode")}: ${selectedParty?.externalReference || EMPTY_STRING}`}
                             </Typography>
                           </Grid>
                           <Grid size={6}>
                             <Typography variant="body2">
-                              {`${formatMessage(intl, "invoice", "invoicePayment.accountName")}: ${selectedParty?.displayName || ""}`}
+                              {`${formatMessage(intl, "invoice", "invoicePayment.accountName")}: ${selectedParty?.displayName || EMPTY_STRING}`}
                             </Typography>
                           </Grid>
                         </Grid>
@@ -273,6 +286,10 @@ const newInvoicePayment = (invoice) => ({
   invoiceId: invoice?.id,
   ...EMPTY_PAYMENT_INVOICE,
   status: PAYMENT_STATUS.ACCEPTED,
+  // Mandatory backend fields, sent even when zero: `reconciliation_status`
+  // (0 = not reconciliated) and `fees` (read by the detail builder).
+  reconciliationStatus: 0,
+  fees: "0.00",
   amountReceived: invoice?.amountNet,
   datePayment: todayIso(),
 });
